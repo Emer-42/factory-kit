@@ -19,6 +19,12 @@ Lo que lee el tablero de la sala: `docs/run-contract.md` (pásaselo a quien cons
 | `scripts/check-problem-repo.sh` | revisa un repo de problema antes de publicarlo, sin gastar tokens |
 | `tests/` | pruebas sin gastar tokens: `claude` y `gh` falsos en `tests/stubs/` |
 
+## Costo y tiempo medidos
+
+Ensayo del 6 de noviembre de 2026 (48 corridas reales, 4 repos, `claude-sonnet-5-5`): **$0.31 por corrida en
+promedio, $0.46 como máximo; 2 minutos en promedio, 5 como máximo.** Para el correo de pre-work: unas 4
+corridas por participante cuestan alrededor de $1.50.
+
 ## Probar el kit
 
 ```zsh
