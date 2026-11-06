@@ -1,0 +1,25 @@
+name: ci
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt shellcheck-py==0.11.0.1
+      # macOS: stock bash 3.2 and no coreutils on purpose, like a participant's laptop.
+      - name: shellcheck
+        run: |
+          (cd kit && shellcheck -x factory.sh doctor.sh)
+          shellcheck sync.sh tests/stubs/*
+      - name: tests
+        run: pytest -q

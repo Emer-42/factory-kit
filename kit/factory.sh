@@ -170,6 +170,7 @@ check_scope() {
     STOPPED_BY="scope"
     {
       printf '# Scope check stopped the run\n\nOnly these paths may change: %s\n\nOut of scope:\n\n' "$SCOPE"
+      # shellcheck disable=SC2016  # literal backticks: Markdown code
       while IFS= read -r f; do printf -- '- `%s`\n' "$f"; done <<<"$bad"
       printf '\nVERDICT: REJECT\n'
     } >.factory/review.md

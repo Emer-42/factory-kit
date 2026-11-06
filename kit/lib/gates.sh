@@ -31,6 +31,7 @@ _with_timeout() {
 _gate_failed() {
   STOPPED_BY="gate:$1"
   emit gate name="$1" ok=false
+  # shellcheck disable=SC2016  # literal backticks: a Markdown code fence
   printf '# Gate %s stopped the run\n\n```\n%s\n```\n\nVERDICT: REJECT\n' "$1" "$2" >.factory/review.md
   printf '\n✗ gate %s stopped the run:\n%s\n' "$1" "$2" >&2
 }

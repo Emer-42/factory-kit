@@ -5,7 +5,7 @@
 # Every check prints "ok", or "FIX" with the exact command or step that fixes it.
 # "WARN" lines are worth reading but do not block. Nothing here changes your code.
 set -uo pipefail
-cd "$(dirname "$0")"
+cd "$(dirname "$0")" || exit 1
 
 FIXES=0
 ok() { printf 'ok   %s\n' "$1"; }
@@ -19,6 +19,7 @@ die() {
   printf '%s\n' "$1" >&2
   exit 1
 }
+# shellcheck disable=SC2329  # called by the sourced libraries
 emit() { :; }
 # shellcheck source=lib/conf.sh
 source lib/conf.sh
