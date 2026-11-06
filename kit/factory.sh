@@ -22,6 +22,8 @@ source lib/events.sh
 source lib/conf.sh
 # shellcheck source=lib/gates.sh
 source lib/gates.sh
+# shellcheck source=lib/github.sh
+source lib/github.sh
 
 FACTORY_BASE_REF="main"
 FACTORY_BASE=""
@@ -68,13 +70,17 @@ preflight() {
       "$(git status --short)"
   fi
   gh auth status >/dev/null 2>&1 || die "gh is not logged in: gh auth login, then ./doctor.sh"
-  UPSTREAM="$(gh repo view --json parent -q 'if .parent then .parent.owner.login + "/" + .parent.name else "" end')"
-  [[ -n "$UPSTREAM" ]] || die "this repo is not a fork of a workshop repo: fork it on GitHub and clone your fork"
+  detect_upstream
   [[ "$(gh issue view "$ISSUE" --repo "$UPSTREAM" --json state -q .state 2>/dev/null)" == "OPEN" ]] \
     || die "issue #$ISSUE does not exist in $UPSTREAM or is not open"
   ISSUE_TITLE="$(gh issue view "$ISSUE" --repo "$UPSTREAM" --json title -q .title | tr '\n\r' '  ' | sed 's/ *$//')"
   bash -c "$TEST_CMD" >/dev/null 2>&1 || die "tests already fail on main ($TEST_CMD): fix them before running the factory"
   BRANCH="factory/issue-${ISSUE}-$(date +%Y%m%d-%H%M%S)"
+  if branch_taken "$BRANCH"; then  # two runs in the same second
+    sleep 1
+    BRANCH="factory/issue-${ISSUE}-$(date +%Y%m%d-%H%M%S)"
+    ! branch_taken "$BRANCH" || die "branch $BRANCH already exists; wait a second and run again"
+  fi
   FACTORY_BASE="$(git rev-parse HEAD)"
   emit preflight ok=true title="$ISSUE_TITLE" branch="$BRANCH"
 }
@@ -203,7 +209,8 @@ end_run() {
     printf '\nFACTORY_NO_PUSH set: %s run committed on %s, not pushed.\n' "$verdict" "$BRANCH"
     finish_run result="$result" turns="$TOTAL_TURNS" cost="$TOTAL_COST"
   else
-    die "pushing is not available yet: run with FACTORY_NO_PUSH=1"
+    printf '\n══ opening the PR on %s (a human decides; nothing is merged) ══\n' "$UPSTREAM"
+    open_pr "$verdict"
   fi
   [[ "$verdict" == "APPROVE" ]] || exit 1
 }
