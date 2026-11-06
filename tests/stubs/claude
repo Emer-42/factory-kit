@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+# Stub `claude` for tests. Never calls a model.
+# Each call N records its argv (NUL-separated) in $STUB_DIR/argv.N, runs $STUB_DIR/phaseN.sh
+# if present (so a test scripts what each phase does), then prints stream-json lines ending
+# in a result whose subtype is $STUB_RESULT_N (default success).
+set -u
+dir="${STUB_DIR:?STUB_DIR not set}"
+echo "$*" >>"$dir/claude.log"
+if [[ "${1:-}" == "-p" && "${2:-}" == "reply ok" ]]; then  # doctor's login probe
+  if [[ -n "${STUB_CLAUDE_LOGGED_OUT:-}" ]]; then echo "Invalid API key · Please run /login"; exit 1; fi
+  echo ok
+  exit 0
+fi
+n=$(($(cat "$dir/count" 2>/dev/null || echo 0) + 1))
+echo "$n" >"$dir/count"
+printf '%s\0' "$@" >"$dir/argv.$n"
+if [[ -f "$dir/phase$n.sh" ]]; then
+  bash "$dir/phase$n.sh" || exit $?
+fi
+var="STUB_RESULT_$n"
+printf '{"type":"assistant","message":{"content":[{"type":"text","text":"stub phase %s"}]}}\n' "$n"
+printf '{"type":"result","subtype":"%s","num_turns":3,"duration_ms":1000,"total_cost_usd":0.1}\n' "${!var:-success}"
