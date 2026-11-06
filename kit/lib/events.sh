@@ -15,7 +15,15 @@ if [[ -f "${BASH_SOURCE[0]%/*}/telemetry.sh" ]]; then
   source "${BASH_SOURCE[0]%/*}/telemetry.sh"
 else
   telemetry_emit() { :; }  # an older checkout without the client
+  telemetry_flush() { :; }
 fi
+
+# telemetry_resend: when a run ends, resend the whole run in the background. Events sent one by one
+# can be lost on flaky venue Wi-Fi; the dashboard drops duplicates, so a resend is always safe.
+telemetry_resend() {
+  # shellcheck disable=SC2119  # telemetry_flush takes no arguments
+  (telemetry_flush >/dev/null 2>&1 </dev/null &) >/dev/null 2>&1 || true
+}
 
 # emit <event> [key=value ...]: append one JSON line. Never fails the run.
 emit() {
@@ -48,6 +56,7 @@ die() {
   ENDED=1
   run_facts
   emit fail phase="$CURRENT_PHASE" reason="$msg" ${RUN_FACTS[@]+"${RUN_FACTS[@]}"}
+  telemetry_resend
   [[ -z "$ON_STOP" ]] || "$ON_STOP"
   exit 1
 }
@@ -56,6 +65,7 @@ finish_run() {
   ENDED=1
   run_facts
   emit finish "$@" ${RUN_FACTS[@]+"${RUN_FACTS[@]}"}
+  telemetry_resend
 }
 
 # Any exit that is not a die() or finish_run() (Ctrl+C, a failed command) still tells the panel.
@@ -65,6 +75,7 @@ on_exit() {
   if [[ -d .factory/logs ]]; then
     run_facts
     emit fail phase="$CURRENT_PHASE" reason="stopped: interrupted or a command failed" ${RUN_FACTS[@]+"${RUN_FACTS[@]}"}
+    telemetry_resend
   fi
   [[ -z "$ON_STOP" ]] || "$ON_STOP"
 }

@@ -97,7 +97,13 @@ def test_a_full_run_reaches_the_server(
     script_phases(stub_env, phase4=REJECT)
     env = telemetry_env(stub_env, tmp_path, telemetry_server.url)
     assert run_factory(kit_repo, env, "1").returncode == 1
-    rows = telemetry_server.wait_for("finish")
+    telemetry_server.wait_for("finish")
+    # Live events plus the end-of-run resend (a multi-line batch); the dashboard keeps one row per seq.
+    deadline = time.monotonic() + 15
+    while not any(str(r["body"]).count("\n") > 1 for r in telemetry_server.requests) and time.monotonic() < deadline:
+        time.sleep(0.05)
+    assert any(str(r["body"]).count("\n") > 1 for r in telemetry_server.requests), "run was not resent at the end"
+    rows = list({(r["run_id"], r["seq"]): r for r in telemetry_server.events()}.values())
 
     req = telemetry_server.requests[0]
     assert req["path"] == "/v1/events"
