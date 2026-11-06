@@ -125,3 +125,39 @@ def test_failing_lint_fails(problem: Path, stub_env: dict[str, str]) -> None:
     commit_file(problem, stub_env, "factory.conf", 'TEST_CMD="./check.sh"\nLINT_CMD="./lint.sh"\nSCOPE="app/"\n')
     out = check(problem, stub_env)
     assert out.returncode == 1 and line(out, "lint").startswith("FAIL") and "E501" in line(out, "lint")
+
+
+# ── from the review of the problem repos ────────────────────────────────────
+def test_relative_trip_path_works(problem: Path, stub_env: dict[str, str], tmp_path: Path) -> None:
+    commit_file(problem, stub_env, "gates/no-x.sh", '#!/usr/bin/env bash\ngrep -q x.txt <<<"$FACTORY_CHANGED" && exit 1\nexit 0\n', EXEC)
+    patch = patch_adding(problem, stub_env, tmp_path, "app/x.txt", "x")
+    out = subprocess.run(
+        ["bash", str(CHECK), str(problem), "--trip", patch.name, "no-x.sh"],
+        cwd=patch.parent, env=stub_env, capture_output=True, text=True,
+    )
+    assert out.returncode == 0, out.stdout + out.stderr
+
+
+def test_trip_whose_tests_then_write_outside_scope_fails(problem: Path, stub_env: dict[str, str], tmp_path: Path) -> None:
+    # like leaderboard-api #3: the patched code, run by the tests, writes a file outside SCOPE
+    commit_file(problem, stub_env, "check.sh", "#!/usr/bin/env bash\n[ -f app/logger.txt ] && mkdir -p logs && touch logs/requests.log\nexit 0\n", EXEC)
+    patch = patch_adding(problem, stub_env, tmp_path, "app/logger.txt", "logger")
+    out = check(problem, stub_env, "--trip", str(patch), "review")
+    assert out.returncode == 1
+    assert "logs/requests.log" in line(out, "trip")
+
+
+def test_trip_whose_tests_fail_fails(problem: Path, stub_env: dict[str, str], tmp_path: Path) -> None:
+    commit_file(problem, stub_env, "check.sh", "#!/usr/bin/env bash\n[ ! -f app/broken.txt ]\n", EXEC)
+    patch = patch_adding(problem, stub_env, tmp_path, "app/broken.txt", "broken")
+    out = check(problem, stub_env, "--trip", str(patch), "review")
+    assert out.returncode == 1 and "tests fail" in line(out, "trip")
+
+
+def test_pass_patch_must_pass_every_gate(problem: Path, stub_env: dict[str, str], tmp_path: Path) -> None:
+    commit_file(problem, stub_env, "gates/no-x.sh", '#!/usr/bin/env bash\ngrep -q x.txt <<<"$FACTORY_CHANGED" && exit 1\nexit 0\n', EXEC)
+    x = patch_adding(problem, stub_env, tmp_path, "app/x.txt", "x")
+    y = patch_adding(problem, stub_env, tmp_path, "app/y.txt", "y")
+    assert check(problem, stub_env, "--pass", str(y)).returncode == 0
+    stopped = check(problem, stub_env, "--pass", str(x))
+    assert stopped.returncode == 1 and "no-x.sh" in line(stopped, "pass")

@@ -57,13 +57,16 @@ MAX_TURNS=40  PHASE_TIMEOUT=300  GATE_TIMEOUT=60   # opcionales
 ## Revisar un repo de problema
 
 ```zsh
-scripts/check-problem-repo.sh ../workshop-repos/expense-report --trip ../notes/tickets/expense-report/trip.patch diff-size.sh
+scripts/check-problem-repo.sh ../workshop-repos/expense-report \
+  --trip ../notes/tickets/expense-report/trip.patch diff-size.sh --pass ../notes/tickets/expense-report/pass-2.patch
 ```
 
 Trabaja sobre un clon nuevo, como lo recibe un participante: el repo está limpio, el kit al día,
 `factory.conf` carga, `SETUP` + `TEST_CMD` pasan sin dejar archivos sin ignorar, los gates pasan en
 `main`, y cada `--trip` (un parche que simula lo que haría el agente con el ticket trampa) lo detiene
-el gate indicado. Con `review` en vez de un gate, ningún gate debe detenerlo: le toca al revisor.
+el gate indicado, después de correr los tests y el chequeo de scope como lo hace la fábrica. Con `review`
+en vez de un gate, ningún gate debe detenerlo: le toca al revisor. Cada `--pass` (una solución razonable de
+un ticket normal) debe pasar todos los gates.
 
 ## Ensayar en tu propio repo
 
@@ -75,6 +78,7 @@ FACTORY_UPSTREAM=sgomezahumada/leaderboard-api FACTORY_NO_PUSH=1 ./factory.sh 1
 
 `FACTORY_UPSTREAM` hace que la fábrica use ese repo como upstream en vez de buscar el padre del fork.
 Los participantes nunca lo necesitan.
+Sin `FACTORY_NO_PUSH=1`, las ramas y los PRs del ensayo van al repo público del taller (y al tablero).
 
 ## El contrato de `gates/`
 

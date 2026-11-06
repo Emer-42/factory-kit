@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # check-problem-repo.sh — verify a workshop problem repo before publishing it. Spends no tokens.
-# Usage: scripts/check-problem-repo.sh <repo-dir> [--trip <patch> <gate-file-name|review>]...
+# Usage: scripts/check-problem-repo.sh <repo-dir> [--trip <patch> <gate-file-name|review>]... [--pass <patch>]...
 #
 # Works on a fresh clone of what is committed, the way a participant gets it:
 #   clean     the source repo is on main with nothing uncommitted
@@ -9,8 +9,11 @@
 #   tests     SETUP then TEST_CMD pass, and leave nothing git does not ignore
 #   lint      LINT_CMD passes (when set)
 #   gates     every shipped gate is runnable and passes on main
-#   trip      each --trip patch is stopped by the named gate first; "review" means no gate
-#             stops it, so it reaches the reviewer (who is expected to reject it)
+#   trip      each --trip patch (what an agent might write for the trap ticket), run the way the
+#             engine runs it: tests and lint pass, nothing changes outside SCOPE, then the named
+#             gate stops it first; "review" means no gate does, so the reviewer gets to reject it
+#   pass      each --pass patch (a plausible solution of an ordinary ticket) gets through the same
+#             way with no gate stopping it
 set -uo pipefail
 
 KIT_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -36,6 +39,18 @@ elif [[ -n "$(git -C "$repo" status --porcelain)" ]]; then
 else
   ok "clean"
 fi
+
+# Read the --trip/--pass arguments now: their paths are relative to where the checker was started.
+declare -a PATCHES=() EXPECT=()
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --trip) [[ $# -ge 3 ]] || { echo "usage: --trip <patch> <gate-file-name|review>" >&2; exit 2; }
+      PATCHES+=("$(cd "$(dirname "$2")" && pwd)/$(basename "$2")"); EXPECT+=("$3"); shift 3 ;;
+    --pass) [[ $# -ge 2 ]] || { echo "usage: --pass <patch>" >&2; exit 2; }
+      PATCHES+=("$(cd "$(dirname "$2")" && pwd)/$(basename "$2")"); EXPECT+=("-"); shift 2 ;;
+    *) echo "unknown argument: $1" >&2; exit 2 ;;
+  esac
+done
 
 git clone -q "$repo" "$clone" || { fail "clone" "git clone failed"; exit 1; }
 cd "$clone" || exit 1
@@ -109,25 +124,48 @@ else
   fail "gates" "$problem"
 fi
 
-# trip
-while [[ $# -gt 0 ]]; do
-  [[ "$1" == "--trip" && $# -ge 3 ]] || { echo "usage: --trip <patch> <gate-file-name|review>" >&2; exit 2; }
-  patch="$(cd "$(dirname "$2")" && pwd)/$(basename "$2")" gate="$3"
-  shift 3
+# trip and pass: apply the patch, then do what the engine does after phase 2
+out_of_scope() {  # the changed files (stdin) that SCOPE does not allow
+  local f
+  while IFS= read -r f; do
+    [[ -z "$f" ]] || in_scope "$f" || echo "$f"
+  done
+}
+
+i=0
+while [[ $i -lt ${#PATCHES[@]} ]]; do
+  patch="${PATCHES[$i]}" gate="${EXPECT[$i]}"
+  i=$((i + 1))
+  label="trip ${patch##*/}"
+  [[ "$gate" != "-" ]] || label="pass ${patch##*/}"
   if ! git apply "$patch" 2>"$work/apply.log"; then
-    fail "trip ${patch##*/}" "patch does not apply: $(tr '\n' ' ' <"$work/apply.log")"
+    fail "$label" "patch does not apply: $(tr '\n' ' ' <"$work/apply.log")"
     continue
   fi
-  git add -N .
-  first="$(run_all_gates "$base" "$(git -c core.quotepath=off diff --no-renames --name-only "$base")")"
-  if [[ "$gate" == "review" && -z "$first" ]]; then
-    ok "trip ${patch##*/} reaches the review"
-  elif [[ "$gate" == "review" ]]; then
-    fail "trip ${patch##*/}" "expected to reach the review, but gates/$first stopped it"
-  elif [[ "$first" == "$gate" ]]; then
-    ok "trip ${patch##*/} stopped by $gate"
+  if ! bash -c "$TEST_CMD" >"$work/patched-tests.log" 2>&1; then
+    fail "$label" "tests fail with the patch applied: $(tail -n 3 "$work/patched-tests.log" | tr '\n' ' ')"
+  elif [[ -n "$LINT_CMD" ]] && ! bash -c "$LINT_CMD" >"$work/patched-lint.log" 2>&1; then
+    fail "$label" "lint fails with the patch applied: $(tail -n 3 "$work/patched-lint.log" | tr '\n' ' ')"
   else
-    fail "trip ${patch##*/}" "expected gates/$gate to stop it, got ${first:-no gate}${first:+ (gates/$first)}"
+    git add -N .
+    changed="$(git -c core.quotepath=off diff --no-renames --name-only "$base")"
+    outside="$(out_of_scope <<<"$changed")"
+    first="$(run_all_gates "$base" "$changed")"
+    if [[ -n "$outside" ]]; then
+      fail "$label" "the scope check would stop it first (after the tests ran): $(tr '\n' ' ' <<<"$outside")"
+    elif [[ "$gate" == "-" && -z "$first" ]]; then
+      ok "$label gets through every gate"
+    elif [[ "$gate" == "-" ]]; then
+      fail "$label" "gates/$first stops a change that should get through"
+    elif [[ "$gate" == "review" && -z "$first" ]]; then
+      ok "$label reaches the review"
+    elif [[ "$gate" == "review" ]]; then
+      fail "$label" "expected to reach the review, but gates/$first stopped it"
+    elif [[ "$first" == "$gate" ]]; then
+      ok "$label stopped by $gate"
+    else
+      fail "$label" "expected gates/$gate to stop it, got ${first:-no gate}${first:+ (gates/$first)}"
+    fi
   fi
   git reset -q && git checkout -q -- . && git clean -fdq
 done
