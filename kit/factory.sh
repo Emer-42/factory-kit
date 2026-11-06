@@ -69,12 +69,18 @@ preflight() {
     die "working tree is not clean. Commit your changes first: git add gates prompts AGENTS.md && git commit -m \"my factory\"" \
       "$(git status --short)"
   fi
+  local problem
+  problem="$(check_gate_files)" || die "$problem"
   gh auth status >/dev/null 2>&1 || die "gh is not logged in: gh auth login, then ./doctor.sh"
   detect_upstream
   [[ "$(gh issue view "$ISSUE" --repo "$UPSTREAM" --json state -q .state 2>/dev/null)" == "OPEN" ]] \
     || die "issue #$ISSUE does not exist in $UPSTREAM or is not open"
   ISSUE_TITLE="$(gh issue view "$ISSUE" --repo "$UPSTREAM" --json title -q .title | tr '\n\r' '  ' | sed 's/ *$//')"
   bash -c "$TEST_CMD" >/dev/null 2>&1 || die "tests already fail on main ($TEST_CMD): fix them before running the factory"
+  if [[ -n "$(git status --porcelain)" ]]; then  # else the agents get blamed for these files
+    die "running the tests ($TEST_CMD) leaves files git does not ignore. Add them to .gitignore and commit:" \
+      "$(git status --short)"
+  fi
   BRANCH="factory/issue-${ISSUE}-$(date +%Y%m%d-%H%M%S)"
   if branch_taken "$BRANCH"; then  # two runs in the same second
     sleep 1
@@ -133,10 +139,10 @@ run_phase() {
   prompt="$(render_prompt "$file") $SHELL_RULE"
   while IFS= read -r rule; do allowed+=("$rule"); done < <(allowed_tools "$num")
   while IFS= read -r rule; do denied+=("$rule"); done < <(denied_tools "$num")
-  # --strict-mcp-config and --setting-sources keep the participant's own connectors, plugins,
-  # hooks and CLAUDE.md out of the factory: only this repo's setup applies.
+  # --strict-mcp-config and --setting-sources project keep the participant's own connectors, plugins,
+  # hooks, CLAUDE.md and .claude/settings.local.json out: only the repo's committed setup applies.
   local -a cmd=(claude -p --permission-mode acceptEdits --max-turns "$MAX_TURNS" --model "$MODEL"
-    --strict-mcp-config --setting-sources "project,local" --output-format stream-json --verbose
+    --strict-mcp-config --setting-sources project --output-format stream-json --verbose
     --disallowedTools "${denied[@]}" --allowedTools "${allowed[@]}" -- "$prompt")
   wrapper="$(timeout_cmd)"
   # --foreground keeps claude in our process group so Ctrl+C still stops it.
@@ -145,10 +151,13 @@ run_phase() {
   CURRENT_PHASE="$num"
   emit phase_start phase="$num" name="$name" tools="$(IFS='|'; echo "${allowed[*]}")"
   printf '\n══ phase %s · %s ══\n' "$num" "$name"
-  "${cmd[@]}" </dev/null | tee "$log" | jq -R -r --unbuffered --arg root "$ROOT/" "fromjson? | $FILTER" \
-    || die "phase $num crashed or timed out (raw log: $log)"
-  jq -e 'select(.type == "result") | .subtype == "success"' "$log" >/dev/null \
-    || die "phase $num did not finish cleanly, e.g. hit the turn limit (raw log: $log)"
+  local status=0 subtype
+  "${cmd[@]}" </dev/null | tee "$log" | jq -R -r --unbuffered --arg root "$ROOT/" "fromjson? | $FILTER" || status=$?
+  subtype="$(jq -Rrs '[split("\n")[] | fromjson? | select(.type == "result")] | last | .subtype // ""' "$log")"
+  if [[ -n "$subtype" && "$subtype" != "success" ]]; then
+    die "phase $num did not finish cleanly ($subtype), e.g. hit the turn limit (raw log: $log)"
+  fi
+  [[ "$status" -eq 0 && -n "$subtype" ]] || die "phase $num crashed or timed out (raw log: $log)"
   [[ -s "$out" ]] || die "phase $num did not write $out, stopping before the next phase builds on nothing"
   add_totals "$log"
   emit phase_end phase="$num"
@@ -214,15 +223,35 @@ end_run() {
     printf '\n══ opening the PR on %s (a human decides; nothing is merged) ══\n' "$UPSTREAM"
     open_pr "$verdict"
   fi
+  back_to_main
   [[ "$verdict" == "APPROVE" ]] || exit 1
+}
+
+back_to_main() {  # the next change belongs on main, where the next run starts
+  git checkout -q main
+  printf 'Now back on main: commit your next change here, then ./factory.sh <issue> again.\n'
+}
+
+# park_run: when a run stops early, keep its files on the run branch and leave main clean.
+park_run() {
+  [[ -n "$BRANCH" && "$(git branch --show-current 2>/dev/null)" == "$BRANCH" ]] || return 0
+  git add -A >/dev/null 2>&1 || return 0
+  if ! git diff --cached --quiet; then
+    git -c core.hooksPath=/dev/null commit -q --no-verify -m "stopped run for #${ISSUE}" >/dev/null 2>&1 || return 0
+  fi
+  git checkout -q main 2>/dev/null || return 0
+  printf 'Back on main, clean. What this run did so far is kept on branch %s.\n' "$BRANCH" >&2
 }
 
 rm -rf .factory/logs .factory/*.md .factory/pr-body.md
 mkdir -p .factory/logs
+# Run files never dirty the repo, whatever its .gitignore says (a "*" file ignores itself too).
+[[ -e .factory/.gitignore ]] || printf '*\n' >.factory/.gitignore
 install_traps
 emit run_start issue="$ISSUE"
 preflight
 git checkout -q -b "$BRANCH"
+ON_STOP=park_run
 printf 'On branch %s · upstream %s · live agent output below · raw logs in .factory/logs/\n' "$BRANCH" "$UPSTREAM"
 
 run_phase 1 .factory/plan.md

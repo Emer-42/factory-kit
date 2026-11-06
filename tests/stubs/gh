@@ -17,6 +17,7 @@ case "${1:-} ${2:-}" in
     esac
     exit 0 ;;
   "pr create")
+    if [[ -n "${STUB_GH_PR_FAIL:-}" ]]; then echo "stub gh: pr create failed" >&2; exit 1; fi
     n=$(($(cat "$dir/prcount" 2>/dev/null || echo 0) + 1))
     echo "$n" >"$dir/prcount"
     printf '%s\0' "$@" >"$dir/pr.$n"

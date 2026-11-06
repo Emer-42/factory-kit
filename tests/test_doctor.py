@@ -117,8 +117,8 @@ def test_doctor_warns_when_fork_is_behind(
     git_out(other, stub_env, "push", "-q", "origin", "main")
     out = doctor(doctor_repo, stub_env)
     assert out.returncode == 0, out.stdout
-    warn = [l for l in out.stdout.splitlines() if l.startswith("WARN")]
-    assert warn and "git pull upstream main" in warn[0]
+    warns = [l for l in out.stdout.splitlines() if l.startswith("WARN")]
+    assert any("git pull upstream main" in w for w in warns), warns
 
 
 def test_runs_every_check_even_after_a_failure(doctor_repo: Path, stub_env: dict[str, str]) -> None:

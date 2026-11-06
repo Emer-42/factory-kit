@@ -27,10 +27,10 @@ def test_happy_path_commits_on_a_run_branch(kit_repo: Path, stub_env: dict[str, 
     script_phases(stub_env)
     out = run_factory(kit_repo, rehearse(stub_env), "1")
     assert out.returncode == 0, out.stderr
-    assert re.match(
-        r"^factory/issue-1-\d{8}-\d{6}$", git_out(kit_repo, stub_env, "branch", "--show-current")
-    )
-    assert git_out(kit_repo, stub_env, "log", "-1", "--format=%s") == "feat: Add stats (#1)"
+    [run] = git_out(kit_repo, stub_env, "branch", "--list", "factory/*", "--format=%(refname:short)").split()
+    assert re.match(r"^factory/issue-1-\d{8}-\d{6}$", run)
+    assert git_out(kit_repo, stub_env, "log", "-1", "--format=%s", run) == "feat: Add stats (#1)"
+    assert git_out(kit_repo, stub_env, "branch", "--show-current") == "main"  # the run ends on main
     assert events(kit_repo)[-1]["event"] == "finish"
     assert last(kit_repo, "finish")["result"] == "committed"
 

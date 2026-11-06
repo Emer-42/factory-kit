@@ -2060,7 +2060,7 @@ h1 .num { color: var(--pv-text-tertiary); font-weight: 600; }
 .card.done .state { color: var(--pv-tone-positive-ink); }
 .card.failed { border-color: var(--pv-tone-critical-stroke); background: var(--pv-tone-critical-bg); }
 .card.failed .state { color: var(--pv-tone-critical-ink); }
-.card.pending { opacity: .55; }
+.card.pending, .card.skipped { opacity: .55; }
 .card.final { cursor: default; background: var(--pv-bg-secondary); border-color: transparent; }
 .card.final.ok { background: var(--pv-tone-positive-bg); border-color: var(--pv-tone-positive-stroke); }
 .card.final.fail { background: var(--pv-tone-critical-bg); border-color: var(--pv-tone-critical-stroke); }
@@ -2252,8 +2252,8 @@ const GLYPH = {
   loader: SVG('<path d="M21 12a9 9 0 1 1-6.219-8.56"/>'),
   circle: SVG('<circle cx="12" cy="12" r="9"/>'),
 };
-const ICON = { done: GLYPH.check, failed: GLYPH.x, running: GLYPH.loader, pending: GLYPH.circle };
-const STATE_LABEL = { done: "Done", failed: "Stopped", running: "Running", pending: "Waiting" };
+const ICON = { done: GLYPH.check, failed: GLYPH.x, running: GLYPH.loader, pending: GLYPH.circle, skipped: GLYPH.circle };
+const STATE_LABEL = { done: "Done", failed: "Stopped", running: "Running", pending: "Waiting", skipped: "Skipped" };
 const $ = (id) => document.getElementById(id);
 
 let state = null;
@@ -2395,7 +2395,7 @@ function finalCard(run) {
   if (run.status === "rejected") return `<article class="card final fail"><span class="n">Verdict</span><h2>Rejected</h2><div class="sub">nothing was pushed (rehearsal)</div></article>`;
   const gate = run.preflight === "failed" || /scope violation|no changes under/.test(run.reason || "");
   if (run.status === "failed") return `<article class="card final fail"><span class="n">Stopped</span><h2>${gate ? "Gate closed" : "Stopped"}</h2><div class="sub">${esc(run.reason || "")}</div></article>`;
-  return `<article class="card final pending"><span class="n">Pull request</span><h2>Waiting</h2><div class="sub">opens only on APPROVE</div></article>`;
+  return `<article class="card final pending"><span class="n">Pull request</span><h2>Waiting</h2><div class="sub">opens when the verdict is in</div></article>`;
 }
 function renderPipeline() {
   const run = state.run;

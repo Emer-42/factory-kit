@@ -132,6 +132,12 @@ def phase_status(num: int, events: list[Row], rows: list[Row]) -> str:
     return "pending"
 
 
+def _skipped_if_over(status: str, events: list[Row]) -> str:
+    """A phase still pending when the run has finished or stopped will never run."""
+    over = last_event(events, "finish") or last_event(events, "fail")
+    return "skipped" if status == "pending" and over else status
+
+
 def build_phase(num: int, name: str, doc: str, logs: Path, events: list[Row], root: str) -> Row:
     rows = read_jsonl(logs / f"phase{num}.jsonl")
     start = last_event(events, "phase_start", phase=str(num)) or {}
@@ -140,7 +146,7 @@ def build_phase(num: int, name: str, doc: str, logs: Path, events: list[Row], ro
         "num": num,
         "name": str(start.get("name") or name),  # the prompt's heading, once the phase starts
         "doc": doc,
-        "status": phase_status(num, events, rows),
+        "status": _skipped_if_over(phase_status(num, events, rows), events),
         "tools": tools,
         "stats": phase_stats(rows),
         "actions": phase_actions(rows, root),

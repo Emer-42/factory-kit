@@ -74,13 +74,18 @@ Abre http://127.0.0.1:8001 y corre `./factory.sh <n>` en una terminal. El panel 
 
 - **…el participante usa Linux o WSL.** El motor no usa nada exclusivo de macOS (`sed -i ''`, `shasum`,
   `mapfile`…); una prueba lo vigila y CI corre en Ubuntu.
-- **…un gate no es ejecutable, tiene finales de línea de Windows o se cuelga.** La corrida se detiene y el
-  motivo dice exactamente qué hacer (`chmod +x …`, `sed … 's/\r$//'`, o "timed out after 60s").
+- **…un gate no es ejecutable o tiene finales de línea de Windows.** El preflight (y `doctor.sh`) lo detecta
+  antes de gastar una sola fase, y dice exactamente qué hacer (`chmod +x …` o `perl -pi -e 's/\r$//' …`).
+- **…un gate se cuelga.** Se corta a los `GATE_TIMEOUT` segundos y la corrida termina en `[REJECTED]`.
 - **…escribió un gate pero no hizo commit.** El preflight dice "Commit your changes first: git add gates
   prompts AGENTS.md && git commit -m …".
 - **…el título del ticket tiene comillas, backticks, `$` o `&`.** El título del PR y el marcador JSON lo
   llevan intacto.
 - **…corre el mismo ticket dos veces, o su fork quedó atrás.** Cada corrida tiene su propia rama
   (`factory/issue-<n>-<fecha>-<hora>`); `doctor.sh` avisa (sin bloquear) si falta `git pull upstream main`.
+- **…una corrida se detiene a mitad (error, límite de turnos, Ctrl+C).** Lo que hizo queda guardado en su
+  rama `factory/issue-…` y el participante vuelve a un `main` limpio. Toda corrida, buena o mala, termina en `main`.
+- **…el repo no ignora `.factory/` o el panel crea `__pycache__/`.** No importa: `.factory/` se ignora solo y
+  `dashboard/` trae su propio `.gitignore`.
 - **…tiene un remoto `upstream`.** El motor nombra el fork de forma explícita al preguntarle a `gh`
   por el repo padre; sin eso, `gh` miraría `upstream` y diría que no es un fork.

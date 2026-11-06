@@ -56,7 +56,7 @@ def test_failed_phase_and_reason_are_reported(tmp_path: Path) -> None:
         {"ts": 9, "event": "fail", "phase": "2", "reason": "phase 2 did not write .factory/build.md"},
     )
     state = build_state(tmp_path)
-    assert [p["status"] for p in state["phases"]] == ["done", "failed", "pending", "pending"]
+    assert [p["status"] for p in state["phases"]] == ["done", "failed", "skipped", "skipped"]  # kit: a stopped run never runs them
     assert state["run"]["status"] == "failed"
     assert state["run"]["reason"] == "phase 2 did not write .factory/build.md"
     assert state["run"]["ended"] == 9

@@ -65,15 +65,17 @@ def test_gate_not_executable_stops_with_chmod_hint(
 ) -> None:
     commit_file(kit_repo, stub_env, "gates/a.sh", "#!/usr/bin/env bash\nexit 0\n", 0o644)
     script_phases(stub_env)
-    assert run_factory(kit_repo, rehearse(stub_env), "1").returncode == 1
-    assert "chmod +x gates/a.sh" in review_text(kit_repo)
+    out = run_factory(kit_repo, rehearse(stub_env), "1")
+    assert out.returncode == 1
+    assert "chmod +x gates/a.sh" in out.stderr  # stopped in preflight, before any phase
 
 
 def test_gate_with_crlf_stops_with_hint(kit_repo: Path, stub_env: dict[str, str]) -> None:
     commit_file(kit_repo, stub_env, "gates/w.sh", "#!/usr/bin/env bash\r\nexit 0\r\n", EXEC)
     script_phases(stub_env)
-    assert run_factory(kit_repo, rehearse(stub_env), "1").returncode == 1
-    assert "Windows line endings" in review_text(kit_repo)
+    out = run_factory(kit_repo, rehearse(stub_env), "1")
+    assert out.returncode == 1
+    assert "Windows line endings" in out.stderr  # stopped in preflight, before any phase
 
 
 def test_gate_timeout_stops_the_run(  # no skip: gates use a built-in watchdog, coreutils or not

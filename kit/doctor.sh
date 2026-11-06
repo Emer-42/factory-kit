@@ -25,6 +25,10 @@ emit() { :; }
 source lib/conf.sh
 # shellcheck source=lib/github.sh
 source lib/github.sh
+# shellcheck source=lib/gates.sh
+source lib/gates.sh
+MODEL="claude-sonnet-5-5"  # until factory.conf is read
+export GIT_TERMINAL_PROMPT=0  # a missing credential fails the check instead of waiting for a password
 
 install_hint() {
   if [[ "$(uname)" == "Darwin" ]]; then echo "brew install $1"; else echo "sudo apt install $1"; fi
@@ -42,7 +46,7 @@ check_tools() {
 
 check_claude() {
   local out
-  if out="$(claude -p 'reply ok' --max-turns 1 2>&1)" && grep -qiw ok <<<"$out"; then
+  if out="$(claude -p 'reply ok' --max-turns 1 --model "$MODEL" 2>&1)" && grep -qiw ok <<<"$out"; then
     ok "Claude login"
   else
     fix "Claude login" "run claude once, log in, then type /exit"
@@ -115,6 +119,16 @@ check_tests() {
   fi
 }
 
+check_gates() {
+  local problem
+  if problem="$(check_gate_files)"; then ok "gates"; else fix "gates" "$problem"; fi
+}
+
+check_time_limit() {
+  if command -v gtimeout >/dev/null || command -v timeout >/dev/null; then return 0; fi
+  warn "phase time limit" "no timeout command, so a stuck phase never times out: $(install_hint coreutils)"
+}
+
 check_behind() {
   local behind
   [[ -n "$UPSTREAM" ]] || return 0
@@ -126,15 +140,19 @@ check_behind() {
 }
 
 check_tools
+CONF_OK=""
+if check_conf; then CONF_OK=1; fi
 check_claude
 check_github
 check_origin
 check_fork
 check_push
-if check_conf; then
+if [[ -n "$CONF_OK" ]]; then
   check_runtime
   check_tests
 fi
+check_gates
+check_time_limit
 check_behind
 
 if [[ "$FIXES" -eq 0 ]]; then

@@ -4,7 +4,7 @@
 
 # Paths no phase may edit: the factory, its rules, the panel. Directories get /**.
 PROTECTED_FILES=(factory.sh factory.conf AGENTS.md doctor.sh .gitignore)
-PROTECTED_DIRS=(lib gates prompts dashboard .claude)
+PROTECTED_DIRS=(lib gates prompts dashboard .claude .git)
 
 # load_conf: source ./factory.conf, apply defaults and FACTORY_* overrides, extend PATH.
 load_conf() {

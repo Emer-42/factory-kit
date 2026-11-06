@@ -5,6 +5,7 @@
 EVENTS=".factory/logs/events.jsonl"
 CURRENT_PHASE=""
 ENDED=""
+ON_STOP=""  # a function to call when the run stops early (factory.sh parks the run branch)
 
 # emit <event> [key=value ...]: append one JSON line. Never fails the run.
 emit() {
@@ -22,11 +23,13 @@ emit() {
 
 # die <message lines...>: stop the run, tell the panel why.
 die() {
-  printf '\n✗ %s\n' "$1" >&2
+  local msg="$1"
+  printf '\n✗ %s\n' "$msg" >&2
   shift
   [[ $# -eq 0 ]] || printf '%s\n' "$@" >&2
   ENDED=1
-  emit fail phase="$CURRENT_PHASE" reason="$*"
+  emit fail phase="$CURRENT_PHASE" reason="$msg"
+  [[ -z "$ON_STOP" ]] || "$ON_STOP"
   exit 1
 }
 
@@ -37,7 +40,10 @@ finish_run() {
 
 # Any exit that is not a die() or finish_run() (Ctrl+C, a failed command) still tells the panel.
 on_exit() {
-  [[ -n "$ENDED" || ! -d .factory/logs ]] || emit fail phase="$CURRENT_PHASE" reason="stopped: interrupted or a command failed"
+  [[ -z "$ENDED" ]] || return 0
+  ENDED=1
+  [[ ! -d .factory/logs ]] || emit fail phase="$CURRENT_PHASE" reason="stopped: interrupted or a command failed"
+  [[ -z "$ON_STOP" ]] || "$ON_STOP"
 }
 
 install_traps() {

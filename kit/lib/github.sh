@@ -59,6 +59,18 @@ run_marker() {  # run_marker <verdict>: the board's one-line summary of this run
   printf '<!-- factory-run %s -->\n' "$json"
 }
 
+shell_words() {  # a command line a person can copy: quote only the words that need it
+  local word out=""
+  for word in "$@"; do
+    if [[ "$word" =~ ^[A-Za-z0-9_./:=@+-]+$ ]]; then
+      out+="$word "
+    else
+      out+="'$(printf '%s' "$word" | sed "s/'/'\\\\''/g")' "
+    fi
+  done
+  echo "${out% }"
+}
+
 write_pr_body() {  # write_pr_body <verdict> <file>
   local zwsp=$'\xe2\x80\x8b'
   {
@@ -97,9 +109,9 @@ open_pr() {
   commit_run
   write_pr_body "$verdict" "$body"
   git push -q --no-verify -u origin "$BRANCH" || die "could not push to your fork (origin): run ./doctor.sh"
-  url="$(gh pr create --repo "$UPSTREAM" --base main --head "$FORK_OWNER:$BRANCH" --title "$title" \
-    --body-file "$body" ${draft[@]+"${draft[@]}"})" \
-    || die "pushed, but gh pr create failed. Retry: gh pr create --repo $UPSTREAM --head $FORK_OWNER:$BRANCH --body-file $body${draft[*]:+ --draft}"
+  local -a create=(gh pr create --repo "$UPSTREAM" --base main --head "$FORK_OWNER:$BRANCH" --title "$title"
+    --body-file "$body" ${draft[@]+"${draft[@]}"})
+  url="$("${create[@]}")" || die "pushed, but gh pr create failed (network?). Retry, from main:" "$(shell_words "${create[@]}")"
   printf '\n%s\n' "$url"
   finish_run result="$result" url="$url" verdict="$verdict" stopped_by="$STOPPED_BY" \
     turns="$TOTAL_TURNS" cost="$TOTAL_COST"

@@ -27,6 +27,38 @@ _with_timeout() {
   wait "$pid"
 }
 
+# gate_problem <file>: prints why a gate cannot run (not executable, Windows line endings), if it cannot.
+gate_problem() {
+  local name="${1##*/}"
+  if [[ ! -x "$1" ]]; then
+    echo "gates/$name is not executable: chmod +x gates/$name && git commit -am \"make gate executable\""
+  elif head -n 1 "$1" | grep -q $'\r$'; then
+    echo "gates/$name has Windows line endings: perl -pi -e 's/\\r\$//' gates/$name && git commit -am \"gate: LF line endings\""
+  fi
+}
+
+gate_files() {  # the gates that run, in name order (not READMEs, dotfiles or editor/sed backups)
+  local f name LC_ALL=C
+  [[ -d gates ]] || return 0
+  for f in gates/*; do
+    name="${f##*/}"
+    case "$name" in .* | README* | *.bak | *~ | *.orig | *.swp) continue ;; esac
+    [[ -f "$f" ]] && echo "$f"
+  done
+}
+
+# check_gate_files: the first gate problem, for preflight and doctor (before any phase is paid for).
+check_gate_files() {
+  local f problem
+  while IFS= read -r f; do
+    problem="$(gate_problem "$f")"
+    if [[ -n "$problem" ]]; then
+      echo "$problem"
+      return 1
+    fi
+  done < <(gate_files)
+}
+
 # _gate_failed <name> <reason>: record the stop and write the rejecting review.
 _gate_failed() {
   STOPPED_BY="gate:$1"
@@ -38,20 +70,14 @@ _gate_failed() {
 
 # run_gates: run every gate in name order; returns 1 at the first one that fails.
 run_gates() {
-  local f name log status changed LC_ALL=C
-  [[ -d gates ]] || return 0
+  local f name log status changed problem
   changed="$(git -c core.quotepath=off diff --no-renames --name-only "$FACTORY_BASE")"
-  for f in gates/*; do
+  while IFS= read -r f; do
     name="${f##*/}"
-    case "$name" in .* | README*) continue ;; esac
-    [[ -f "$f" ]] || continue
     log=".factory/logs/gate-$name.log"
-    if [[ ! -x "$f" ]]; then
-      _gate_failed "$name" "gates/$name is not executable: chmod +x gates/$name && git commit -am \"make gate executable\""
-      return 1
-    fi
-    if head -n 1 "$f" | grep -q $'\r$'; then
-      _gate_failed "$name" "gates/$name has Windows line endings: run  sed -i.bak 's/\\r\$//' gates/$name  (or save it as LF), then commit"
+    problem="$(gate_problem "$f")"
+    if [[ -n "$problem" ]]; then
+      _gate_failed "$name" "$problem"
       return 1
     fi
     status=0
@@ -67,5 +93,5 @@ run_gates() {
       return 1
     fi
     emit gate name="$name" ok=true
-  done
+  done < <(gate_files)
 }
