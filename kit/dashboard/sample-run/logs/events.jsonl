@@ -1,0 +1,15 @@
+{"ts":1793884689,"event":"run_start","issue":"2"}
+{"ts":1793884692,"event":"preflight","ok":"true","title":"Add a /stats endpoint","branch":"factory/issue-2"}
+{"ts":1793884692,"event":"phase_start","phase":"1","name":"plan","tools":"Bash(gh issue view:*)"}
+{"ts":1793884725,"event":"phase_end","phase":"1"}
+{"ts":1793884725,"event":"phase_start","phase":"2","name":"build (TDD)","tools":"Bash(pytest:*)|Bash(python -m pytest:*)|Bash(./venv/bin/python -m pytest:*)|Bash(venv/bin/python -m pytest:*)|Bash(ruff check:*)|Bash(./venv/bin/ruff check:*)"}
+{"ts":1793884762,"event":"phase_end","phase":"2"}
+{"ts":1793884762,"event":"scope","after":"2","ok":"true","files":"app/main.py\napp/store.py\ntests/test_main.py"}
+{"ts":1793884762,"event":"phase_start","phase":"3","name":"test + security","tools":"Bash(pytest:*)|Bash(python -m pytest:*)|Bash(./venv/bin/python -m pytest:*)|Bash(venv/bin/python -m pytest:*)|Bash(ruff check:*)|Bash(./venv/bin/ruff check:*)|Bash(git diff:*)"}
+{"ts":1793884801,"event":"phase_end","phase":"3"}
+{"ts":1793884801,"event":"scope","after":"3","ok":"true","files":"app/main.py\napp/store.py\ntests/test_main.py"}
+{"ts":1793884801,"event":"phase_start","phase":"4","name":"review","tools":"Bash(pytest:*)|Bash(python -m pytest:*)|Bash(./venv/bin/python -m pytest:*)|Bash(venv/bin/python -m pytest:*)|Bash(ruff check:*)|Bash(./venv/bin/ruff check:*)|Bash(git diff:*)"}
+{"ts":1793884832,"event":"phase_end","phase":"4"}
+{"ts":1793884832,"event":"verdict","value":"APPROVE"}
+{"ts":1793884832,"event":"scope","after":"final","ok":"true","files":"app/main.py\napp/store.py\ntests/test_main.py"}
+{"ts":1793884832,"event":"finish","result":"committed"}

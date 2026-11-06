@@ -101,5 +101,6 @@ open_pr() {
     --body-file "$body" ${draft[@]+"${draft[@]}"})" \
     || die "pushed, but gh pr create failed. Retry: gh pr create --repo $UPSTREAM --head $FORK_OWNER:$BRANCH --body-file $body${draft[*]:+ --draft}"
   printf '\n%s\n' "$url"
-  finish_run result="$result" url="$url" turns="$TOTAL_TURNS" cost="$TOTAL_COST"
+  finish_run result="$result" url="$url" verdict="$verdict" stopped_by="$STOPPED_BY" \
+    turns="$TOTAL_TURNS" cost="$TOTAL_COST"
 }

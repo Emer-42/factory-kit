@@ -117,3 +117,11 @@ def test_totals_sum_phase_results(kit_repo: Path, stub_env: dict[str, str]) -> N
     assert run_factory(kit_repo, rehearse(stub_env), "1").returncode == 0
     finish = last(kit_repo, "finish")
     assert (finish["turns"], finish["cost"]) == ("12", "0.4")
+
+
+def test_events_carry_upstream_verdict_and_stop_reason(kit_repo: Path, stub_env: dict[str, str]) -> None:
+    script_phases(stub_env, phase2_extra="echo oops > README.md\n")
+    run_factory(kit_repo, rehearse(stub_env), "1")
+    assert last(kit_repo, "preflight")["upstream"] == "workshop/leaderboard-api"
+    finish = last(kit_repo, "finish")
+    assert (finish["verdict"], finish["stopped_by"]) == ("REJECT", "scope")

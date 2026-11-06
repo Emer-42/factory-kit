@@ -82,7 +82,7 @@ preflight() {
     ! branch_taken "$BRANCH" || die "branch $BRANCH already exists; wait a second and run again"
   fi
   FACTORY_BASE="$(git rev-parse HEAD)"
-  emit preflight ok=true title="$ISSUE_TITLE" branch="$BRANCH"
+  emit preflight ok=true title="$ISSUE_TITLE" branch="$BRANCH" upstream="$UPSTREAM"
 }
 
 prompt_file() {  # prompt_file <num> -> prompts/<num>-*.md
@@ -105,10 +105,11 @@ render_prompt() {  # the prompt file with {{ISSUE}} and {{UPSTREAM}} filled in
   printf '%s' "$text"
 }
 
-phase_name() {  # the prompt's file name without number and extension: prompts/4-review.md -> review
-  local base="${1##*/}"
-  base="${base#*-}"
-  echo "${base%.md}"
+phase_name() {  # phase_name <file> <num>: the prompt's "# Heading", else the phase's default name
+  local heading
+  local -a defaults=(Plan Build Check Review)
+  heading="$(head -n 1 "$1" | tr -d '\r' | sed -n 's/^#[[:space:]]*//p')"
+  echo "${heading:-${defaults[$(($2 - 1))]}}"
 }
 
 timeout_cmd() {  # prints the timeout wrapper for this machine, if any
@@ -128,7 +129,7 @@ run_phase() {
   local num="$1" out="$2" file name prompt rule wrapper log=".factory/logs/phase$1.jsonl"
   local -a allowed=() denied=()
   file="$(prompt_file "$num")"
-  name="$(phase_name "$file")"
+  name="$(phase_name "$file" "$num")"
   prompt="$(render_prompt "$file") $SHELL_RULE"
   while IFS= read -r rule; do allowed+=("$rule"); done < <(allowed_tools "$num")
   while IFS= read -r rule; do denied+=("$rule"); done < <(denied_tools "$num")
@@ -207,7 +208,7 @@ end_run() {
     result="committed"
     [[ "$verdict" == "APPROVE" ]] || result="rejected"
     printf '\nFACTORY_NO_PUSH set: %s run committed on %s, not pushed.\n' "$verdict" "$BRANCH"
-    finish_run result="$result" turns="$TOTAL_TURNS" cost="$TOTAL_COST"
+    finish_run result="$result" verdict="$verdict" stopped_by="$STOPPED_BY" turns="$TOTAL_TURNS" cost="$TOTAL_COST"
   else
     printf '\n══ opening the PR on %s (a human decides; nothing is merged) ══\n' "$UPSTREAM"
     open_pr "$verdict"
