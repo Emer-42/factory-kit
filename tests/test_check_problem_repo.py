@@ -161,3 +161,9 @@ def test_pass_patch_must_pass_every_gate(problem: Path, stub_env: dict[str, str]
     assert check(problem, stub_env, "--pass", str(y)).returncode == 0
     stopped = check(problem, stub_env, "--pass", str(x))
     assert stopped.returncode == 1 and "no-x.sh" in line(stopped, "pass")
+
+
+def test_missing_repo_dir_stops(tmp_path: Path, stub_env: dict[str, str]) -> None:
+    out = check(tmp_path / "nope", stub_env)
+    assert out.returncode == 2 and "not a directory" in out.stderr
+    assert "clean" not in out.stdout

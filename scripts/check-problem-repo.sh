@@ -18,6 +18,7 @@ set -uo pipefail
 
 KIT_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 repo="${1:?usage: check-problem-repo.sh <repo-dir> [--trip <patch> <gate>]...}"
+[[ -d "$repo" ]] || { echo "check: $repo is not a directory" >&2; exit 2; }
 repo="$(cd "$repo" && pwd)"
 shift
 FAILS=0
