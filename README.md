@@ -4,7 +4,7 @@ El kit de la fábrica para el taller "Software factories with Claude Code". Esta
 quienes **organizan** el taller y mantienen los repos de problemas. Los participantes no usan este
 repo: usan los repos de problemas, que ya traen el kit instalado con `sync.sh`.
 
-Diseño completo: `docs/superpowers/specs/2026-11-06-factory-workshop-design.md`.
+Diseño completo y planes: el repo privado `sgomezahumada/factory-workshop-notes`.
 Lo que lee el tablero de la sala: `docs/run-contract.md` (pásaselo a quien construye el tablero).
 
 ## Qué hay aquí
