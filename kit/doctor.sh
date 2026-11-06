@@ -115,7 +115,11 @@ check_tests() {
   if bash -c "$TEST_CMD" >/dev/null 2>&1; then
     ok "tests pass ($TEST_CMD)"
   else
-    fix "tests" "the tests fail on this checkout: run  $TEST_CMD  to see why (or git pull upstream main)"
+    if [[ -n "$SETUP" ]]; then
+      fix "tests" "run  $SETUP  first, then ./doctor.sh again (if they still fail: $TEST_CMD)"
+    else
+      fix "tests" "the tests fail on this checkout: run  $TEST_CMD  to see why (or git pull upstream main)"
+    fi
   fi
 }
 

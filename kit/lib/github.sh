@@ -18,6 +18,12 @@ origin_slug() {  # owner/name of origin when it is a GitHub URL (https or ssh), 
 # would look at upstream itself, which has no parent.
 detect_upstream() {
   local slug
+  if [[ -n "${FACTORY_UPSTREAM:-}" ]]; then  # organiser rehearsal: GitHub cannot fork your own repo
+    UPSTREAM="$FACTORY_UPSTREAM"
+    FORK_OWNER="${UPSTREAM%%/*}"
+    git remote get-url upstream >/dev/null 2>&1 || git remote add upstream "https://github.com/$UPSTREAM.git"
+    return 0
+  fi
   slug="$(origin_slug)"
   # shellcheck disable=SC2086  # $slug is empty or one owner/name word
   UPSTREAM="$(gh repo view $slug --json parent \

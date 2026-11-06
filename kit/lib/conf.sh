@@ -10,7 +10,7 @@ PROTECTED_DIRS=(lib gates prompts dashboard .claude .git)
 load_conf() {
   [[ -f factory.conf ]] || die "factory.conf not found in $(pwd): run this from the repo root"
   TEST_CMD="" LINT_CMD="" SCOPE="" MODEL="claude-sonnet-5-5" MAX_TURNS=40 PHASE_TIMEOUT=300
-  GATE_TIMEOUT=60 PATH_PREPEND="" PROTECT_EXTRA="" RUNTIME=""
+  GATE_TIMEOUT=60 PATH_PREPEND="" PROTECT_EXTRA="" RUNTIME="" SETUP=""
   # shellcheck disable=SC1091
   source ./factory.conf
   [[ -n "$TEST_CMD" ]] || die "factory.conf: TEST_CMD is required (the command that runs the tests)"
