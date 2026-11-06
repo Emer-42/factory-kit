@@ -118,3 +118,10 @@ def test_check_runs_from_a_fresh_clone(problem: Path, stub_env: dict[str, str]) 
     out = check(problem, stub_env)
     assert line(out, "clean").startswith("FAIL")  # the source repo is dirty...
     assert line(out, "tests").startswith("ok")  # ...but the tests ran on what is committed
+
+
+def test_failing_lint_fails(problem: Path, stub_env: dict[str, str]) -> None:
+    commit_file(problem, stub_env, "lint.sh", "#!/usr/bin/env bash\necho 'E501 line too long'\nexit 1\n", EXEC)
+    commit_file(problem, stub_env, "factory.conf", 'TEST_CMD="./check.sh"\nLINT_CMD="./lint.sh"\nSCOPE="app/"\n')
+    out = check(problem, stub_env)
+    assert out.returncode == 1 and line(out, "lint").startswith("FAIL") and "E501" in line(out, "lint")

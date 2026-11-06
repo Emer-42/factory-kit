@@ -7,6 +7,7 @@
 #   kit       sync.sh would change nothing (the repo has this kit)
 #   conf      factory.conf loads
 #   tests     SETUP then TEST_CMD pass, and leave nothing git does not ignore
+#   lint      LINT_CMD passes (when set)
 #   gates     every shipped gate is runnable and passes on main
 #   trip      each --trip patch is stopped by the named gate first; "review" means no gate
 #             stops it, so it reaches the reviewer (who is expected to reject it)
@@ -77,6 +78,15 @@ elif [[ -n "$(git status --porcelain)" ]]; then
   fail "tests" "SETUP/TEST_CMD leave files git does not ignore: $(git status --short | tr '\n' ' ')"
 else
   ok "tests"
+fi
+
+# lint: agents must start from a green lint, or every run argues with it
+if [[ -n "$LINT_CMD" ]]; then
+  if bash -c "$LINT_CMD" >"$work/lint.log" 2>&1; then
+    ok "lint"
+  else
+    fail "lint" "LINT_CMD fails on a fresh clone ($LINT_CMD): $(tail -n 3 "$work/lint.log" | tr '\n' ' ')"
+  fi
 fi
 
 run_all_gates() {  # prints the name of the first gate that fails, if any
