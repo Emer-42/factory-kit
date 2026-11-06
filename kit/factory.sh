@@ -20,6 +20,8 @@ cd "$ROOT"
 source lib/events.sh
 # shellcheck source=lib/conf.sh
 source lib/conf.sh
+# shellcheck source=lib/gates.sh
+source lib/gates.sh
 
 FACTORY_BASE_REF="main"
 FACTORY_BASE=""
@@ -219,7 +221,7 @@ run_phase 1 .factory/plan.md
 run_phase 2 .factory/build.md
 if check_scope 2; then
   run_phase 3 .factory/report.md
-  if check_scope 3; then
+  if check_scope 3 && run_gates; then
     REVIEWED="$(code_fingerprint)"
     run_phase 4 .factory/review.md
     if [[ "$(code_fingerprint)" != "$REVIEWED" ]]; then
